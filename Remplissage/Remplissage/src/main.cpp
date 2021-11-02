@@ -29,7 +29,7 @@ DNSServer dnsServer;
 //const char *password = "";
 
 const int led = 02;
-const int resetButton =18; //D13 UNO
+const int resetButton =18; //D5 UNO
 const int capteurPression = 35;
 const int capteurTop = 26;   
 
@@ -53,9 +53,20 @@ void IRAM_ATTR isr() {
 void setup()
 {
    
-   //----------------------------------------------------Serial
+  //----------------------------------------------------Serial
   Serial.begin(115200);
   Serial.println("\n");
+  //----------------------------------------------------GPIO
+  pinMode(led, OUTPUT);
+  pinMode(resetButton,INPUT_PULLUP);
+  pinMode(capteurTop, INPUT_PULLDOWN);
+
+  digitalWrite(led, HIGH);
+  pinMode(capteurPression, INPUT);
+
+  //----------------------------------------------------Interrupt
+  attachInterrupt(capteurTop, isr, FALLING);
+
   ///---------------------------------------------------Wifi
   // put your setup code here, to run once:
   Serial.print("\nStarting Async_AutoConnect_ESP32_minimal on " + String(ARDUINO_BOARD)); Serial.println(ESP_ASYNC_WIFIMANAGER_VERSION);
@@ -64,9 +75,15 @@ void setup()
 #else
   ESPAsync_WiFiManager ESPAsync_wifiManager(&server, &dnsServer, "Bottle_Filler_Autoconnect");
 #endif  
-  //ESPAsync_wifiManager.resetSettings();   //reset saved settings
+  if (!digitalRead(resetButton))
+  {
+  Serial.println("###### Reset WIFI ############");
+  ESPAsync_wifiManager.resetSettings();   //reset saved settings
+  
+  }
   ESPAsync_wifiManager.setAPStaticIPConfig(IPAddress(192,168,4,1), IPAddress(192,168,4,1), IPAddress(255,255,255,0));
   ESPAsync_wifiManager.autoConnect("Bottle_FillerAP");
+
   if (WiFi.status() == WL_CONNECTED) { Serial.print(F("Connected. Local IP: ")); Serial.println(WiFi.localIP()); }
   else { Serial.println(ESPAsync_wifiManager.getStatus(WiFi.status())); }
  
@@ -96,17 +113,6 @@ void setup()
       else if (error == OTA_END_ERROR) Serial.println("End Failed");
     });
     ArduinoOTA.begin();
-
-  //----------------------------------------------------GPIO
-  pinMode(led, OUTPUT);
-  pinMode(resetButton,INPUT_PULLDOWN);
-  pinMode(capteurTop, INPUT_PULLUP);
-
-  digitalWrite(led, HIGH);
-  pinMode(capteurPression, INPUT);
-
-  //----------------------------------------------------Interrupt
-  attachInterrupt(capteurTop, isr, FALLING);
 
   //----------------------------------------------------SPIFFS
   if (!SPIFFS.begin())
@@ -150,7 +156,7 @@ void setup()
     //   the fully-qualified domain name is "esp32.local"
     // - second argument is the IP address to advertise
     //   we send our IP address on the WiFi network
-    if (!MDNS.begin("esp32")) {
+    if (!MDNS.begin("ESP1")) {
         Serial.println("Error setting up MDNS responder!");
         while(1) {
             delay(1000);
