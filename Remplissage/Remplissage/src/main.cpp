@@ -1,12 +1,29 @@
-#include <Arduino.h>
-#include <ESPAsyncWebServer.h>
-#include <SPIFFS.h>
-//#include <WiFiManager.h>
 #include <WiFi.h>
+#include <AsyncTCP.h>
+#include <ESPAsyncWebServer.h>
+#include <AsyncElegantOTA.h>
+//#include <SPIFFS.h>
+#define _ESPASYNC_WIFIMGR_LOGLEVEL_    3
+#include <WiFiClient.h>
+#include <ESPmDNS.h>
+#include <SPIFFS.h>
 
-
-const char *ssid = "AG2";
-const char *password = "alex_alice_26";
+/****************************************************************************************************************************
+  Async_AutoConnect_ESP32_minimal.ino
+  For ESP8266 / ESP32 boards
+  Built by Khoi Hoang https://github.com/khoih-prog/ESPAsync_WiFiManager
+  Licensed under MIT license
+ *****************************************************************************************************************************/
+#if !(defined(ESP32) )
+  #error This code is intended to run on the ESP32 platform! Please check your Tools->Board setting.
+#endif
+#include <ESPAsync_WiFiManager.h>              //https://github.com/khoih-prog/ESPAsync_WiFiManager
+AsyncWebServer webServer(80);
+#if !( USING_ESP32_S2 || USING_ESP32_C3 )
+DNSServer dnsServer;
+#endif
+//const char *ssid = "";
+//const char *password = "";
 
 const int led = 02;
 const int resetButton =18; //D13 UNO
@@ -32,9 +49,24 @@ void IRAM_ATTR isr() {
 
 void setup()
 {
-  //----------------------------------------------------Serial
+   //----------------------------------------------------Serial
   Serial.begin(115200);
   Serial.println("\n");
+  ///---------------------------------------------------Wifi
+  // put your setup code here, to run once:
+  Serial.print("\nStarting Async_AutoConnect_ESP32_minimal on " + String(ARDUINO_BOARD)); Serial.println(ESP_ASYNC_WIFIMANAGER_VERSION);
+#if ( USING_ESP32_S2 || USING_ESP32_C3 )
+  ESPAsync_WiFiManager ESPAsync_wifiManager(&webServer, NULL, "Async_AutoConnect");
+#else
+  ESPAsync_WiFiManager ESPAsync_wifiManager(&webServer, &dnsServer, "Async_AutoConnect");
+#endif  
+  //ESPAsync_wifiManager.resetSettings();   //reset saved settings
+  ESPAsync_wifiManager.setAPStaticIPConfig(IPAddress(192,168,132,1), IPAddress(192,168,132,1), IPAddress(255,255,255,0));
+  ESPAsync_wifiManager.autoConnect("AutoConnectAP");
+  if (WiFi.status() == WL_CONNECTED) { Serial.print(F("Connected. Local IP: ")); Serial.println(WiFi.localIP()); }
+  else { Serial.println(ESPAsync_wifiManager.getStatus(WiFi.status())); }
+ //----------------------------------------------------OTA
+   AsyncElegantOTA.begin(&webServer);    // Start ElegantOTA
 
   //----------------------------------------------------GPIO
   pinMode(led, OUTPUT);
@@ -65,10 +97,12 @@ void setup()
     file = root.openNextFile();
   }
 
+ 
+
   //----------------------------------------------------WIFI
-	WiFi.mode(WIFI_STA);
+	//WiFi.mode(WIFI_STA);
   digitalWrite(led, LOW);
-  WiFi.begin(ssid, password);
+  //WiFi.begin(ssid, password);
   Serial.print("Tentative de connexion...");
 
   while (WiFi.status() != WL_CONNECTED)
